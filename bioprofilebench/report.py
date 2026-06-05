@@ -12,6 +12,7 @@ from .metrics import CORE_COLUMNS, EXTRA_COLUMNS
 
 PUBLIC_DROP_COLUMNS = {"dataset"}
 PATH_COLUMNS = {"prediction_path", "truth_path", "source_path"}
+KIND_RENAME_COLUMNS = {"gene_kind": "kind", "GeneKind": "Kind"}
 TAXONOMIC_LEVELS = ["kingdom", "phylum", "class", "order", "family", "genus", "species"]
 
 
@@ -19,7 +20,7 @@ SIMPLE_BENCHMARK_COLUMNS = CORE_COLUMNS + EXTRA_COLUMNS + [
     "File",
     "TruthFile",
     "PredFile",
-    "GeneKind",
+    "Kind",
     "Status",
 ]
 
@@ -35,7 +36,7 @@ def basename_or_empty(value: Any) -> str:
 
 
 
-def prepare_public_table(df: pd.DataFrame, drop_dataset: bool = True) -> pd.DataFrame:
+def prepare_public_table(df: pd.DataFrame, drop_dataset: bool = True, rename_kind: bool = True) -> pd.DataFrame:
     """Clean output tables for downstream use.
 
     Public result files should not expose absolute paths by default. Path-like
@@ -48,6 +49,12 @@ def prepare_public_table(df: pd.DataFrame, drop_dataset: bool = True) -> pd.Data
     out = df.copy()
     if drop_dataset:
         out = out.drop(columns=[col for col in PUBLIC_DROP_COLUMNS if col in out.columns])
+    if rename_kind:
+        for old_col, new_col in KIND_RENAME_COLUMNS.items():
+            if old_col in out.columns and new_col not in out.columns:
+                out = out.rename(columns={old_col: new_col})
+            elif old_col in out.columns and new_col in out.columns:
+                out = out.drop(columns=[old_col])
     for col in PATH_COLUMNS:
         if col in out.columns:
             out[col] = out[col].map(basename_or_empty)
@@ -90,7 +97,7 @@ def build_simple_benchmark_table(benchmark: pd.DataFrame) -> pd.DataFrame:
     out["PredFile"] = out.get("prediction_path", "").map(basename_or_empty)
     out["TruthFile"] = out.get("truth_path", "").map(basename_or_empty)
     out["File"] = out["PredFile"]
-    out["GeneKind"] = out.get("gene_kind", "")
+    out["Kind"] = out.get("kind", out.get("gene_kind", ""))
     out["Status"] = out.get("Status", "")
 
     columns = [col for col in SIMPLE_BENCHMARK_COLUMNS if col in out.columns]
@@ -195,7 +202,7 @@ def build_benchmark_summary(simple_benchmark: pd.DataFrame, filter_trace: pd.Dat
     """Summarize benchmark results by truth file, prediction file, filter, and rank."""
     group_cols = [
         col
-        for col in ["GeneKind", "TruthFile", "PredFile", "Info", "Taxonomic Level"]
+        for col in ["Kind", "TruthFile", "PredFile", "Info", "Taxonomic Level"]
         if col in simple_benchmark.columns
     ]
     summary = _build_ranking(simple_benchmark, filter_trace, group_cols)
@@ -205,7 +212,7 @@ def build_benchmark_summary(simple_benchmark: pd.DataFrame, filter_trace: pd.Dat
         insert_at = summary.columns.get_loc("Info") + 1
         summary.insert(insert_at, "filter_config_id", summary["Info"])
     preferred = [
-        "GeneKind",
+        "Kind",
         "TruthFile",
         "PredFile",
         "Info",
@@ -229,7 +236,7 @@ def split_summary_by_level(summary: pd.DataFrame) -> dict[str, pd.DataFrame]:
 
 def build_pair_filter_ranking(simple_benchmark: pd.DataFrame, filter_trace: pd.DataFrame) -> pd.DataFrame:
     """Rank each truth/pred/filter combination across all samples and ranks."""
-    group_cols = [col for col in ["GeneKind", "TruthFile", "PredFile", "Info"] if col in simple_benchmark.columns]
+    group_cols = [col for col in ["Kind", "TruthFile", "PredFile", "Info"] if col in simple_benchmark.columns]
     return _build_ranking(simple_benchmark, filter_trace, group_cols)
 
 
@@ -237,7 +244,7 @@ def build_pair_filter_level_ranking(simple_benchmark: pd.DataFrame, filter_trace
     """Rank each truth/pred/filter combination separately for each taxonomic rank."""
     group_cols = [
         col
-        for col in ["GeneKind", "TruthFile", "PredFile", "Info", "Taxonomic Level"]
+        for col in ["Kind", "TruthFile", "PredFile", "Info", "Taxonomic Level"]
         if col in simple_benchmark.columns
     ]
     return _build_ranking(simple_benchmark, filter_trace, group_cols)

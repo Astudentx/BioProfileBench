@@ -68,6 +68,21 @@ def output_paths(out: str | Path) -> dict[str, Path]:
 
 
 
+
+
+def resolve_args_kind(args: Any) -> str:
+    """Resolve --kind with backward-compatible --gene-kind alias."""
+    return getattr(args, "kind", None) or getattr(args, "gene_kind", None) or "Profile"
+
+
+def resolve_row_kind(row: pd.Series) -> str:
+    """Resolve manifest kind with legacy gene_kind fallback."""
+    kind = row.get("kind", "")
+    if kind != "":
+        return kind
+    return row.get("gene_kind", "")
+
+
 def summary_level_path(summary_path: Path, level: str) -> Path:
     """Return benchmark_summary.<level>.tsv beside the main summary file."""
     if summary_path.name == "benchmark_summary.tsv":
@@ -81,7 +96,7 @@ def build_single_profiles(args: Any) -> tuple[Any, Any]:
         profile_id=f"{args.profile_id}_truth",
         dataset=args.dataset,
         method="Truth",
-        gene_kind=args.gene_kind,
+        gene_kind=resolve_args_kind(args),
         parameter_tag=args.parameter_tag,
     )
     prediction = build_profile(
@@ -89,7 +104,7 @@ def build_single_profiles(args: Any) -> tuple[Any, Any]:
         profile_id=args.profile_id,
         dataset=args.dataset,
         method=args.method,
-        gene_kind=args.gene_kind,
+        gene_kind=resolve_args_kind(args),
         parameter_tag=args.parameter_tag,
         extra_metadata={"prediction_path": Path(args.pred).name, "truth_path": Path(args.truth).name},
     )
@@ -146,7 +161,7 @@ def write_result_bundle(
     write_table(prepare_public_table(failed), paths["failed_or_skipped_runs"], digits)
     write_table(prepare_public_table(run_metadata), paths["run_metadata"], digits)
     write_table(prepare_public_table(decomposition), paths["fp_fn_decomposition"], digits)
-    write_table(prepare_public_table(r_compatible), paths["allbk_filter_compatible"], digits)
+    write_table(prepare_public_table(r_compatible, rename_kind=False), paths["allbk_filter_compatible"], digits)
     return paths
 
 
@@ -160,6 +175,7 @@ def run_single(args: Any, config: dict[str, Any]) -> dict[str, Path]:
 def row_to_prediction_profile(row: pd.Series):
     known = {"prediction_path", "truth_path"}
     extra_metadata = {key: value for key, value in row.to_dict().items() if key not in known}
+    extra_metadata["kind"] = resolve_row_kind(row)
     extra_metadata["prediction_path"] = Path(row["prediction_path"]).name
     extra_metadata["truth_path"] = Path(row["truth_path"]).name
     return build_profile(
@@ -167,7 +183,7 @@ def row_to_prediction_profile(row: pd.Series):
         profile_id=row["profile_id"],
         dataset=row.get("dataset", ""),
         method=row.get("method", ""),
-        gene_kind=row.get("gene_kind", ""),
+        gene_kind=resolve_row_kind(row),
         parameter_tag=row.get("parameter_tag", ""),
         extra_metadata=extra_metadata,
     )
@@ -181,7 +197,7 @@ def row_to_truth_profile(row: pd.Series, cache: dict[str, Any]):
             profile_id=f"truth_{Path(truth_path).stem}",
             dataset=row.get("dataset", ""),
             method="Truth",
-            gene_kind=row.get("gene_kind", ""),
+            gene_kind=resolve_row_kind(row),
             parameter_tag="",
         )
     return cache[truth_path]

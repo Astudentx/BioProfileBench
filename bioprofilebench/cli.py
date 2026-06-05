@@ -14,7 +14,8 @@ def add_common_metadata_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--profile-id", default="profile_001", help="Prediction profile ID for single-run mode.")
     parser.add_argument("--dataset", default="Dataset1", help="Dataset label for single-run mode.")
     parser.add_argument("--method", default="Prediction", help="Method label for single-run mode.")
-    parser.add_argument("--gene-kind", default="ARG", help="Gene kind label for single-run mode.")
+    parser.add_argument("--kind", default=None, help="Profile kind label, e.g. ARGs, Bac, Bacteria, VFs.")
+    parser.add_argument("--gene-kind", default=None, help="Deprecated alias for --kind; kept for backward compatibility.")
     parser.add_argument("--parameter-tag", default="default", help="Parameter tag for single-run mode.")
 
 

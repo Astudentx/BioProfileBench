@@ -210,10 +210,16 @@ def load_manifest(path: str | Path) -> pd.DataFrame:
     """Load batch manifest and resolve relative paths."""
     path = Path(path)
     manifest = pd.read_csv(path, sep="\t", dtype=str, keep_default_na=False)
-    required = ["profile_id", "dataset", "method", "gene_kind", "prediction_path", "truth_path"]
+    required = ["profile_id", "dataset", "method", "prediction_path", "truth_path"]
     missing = [col for col in required if col not in manifest.columns]
     if missing:
         raise ValueError(f"Manifest missing required columns: {missing}")
+    if "kind" not in manifest.columns and "gene_kind" not in manifest.columns:
+        raise ValueError("Manifest missing required kind column: use 'kind' (preferred) or 'gene_kind' (legacy)")
+    if "kind" not in manifest.columns:
+        manifest["kind"] = manifest["gene_kind"]
+    if "gene_kind" not in manifest.columns:
+        manifest["gene_kind"] = manifest["kind"]
     if manifest["profile_id"].duplicated().any():
         duplicated = manifest.loc[manifest["profile_id"].duplicated(), "profile_id"].tolist()
         raise ValueError(f"Manifest profile_id values must be unique; duplicated: {duplicated}")
