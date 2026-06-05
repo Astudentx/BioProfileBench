@@ -1,0 +1,10 @@
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+.DS_Store
+Test/
+Test1/
+Test2/
+Archive/
+results/
+*.tsv
